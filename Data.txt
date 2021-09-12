@@ -1,0 +1,28 @@
+代码来源：Assembly-CSharp.dll，IO，NewTouchPanel
+字符是ASCII编码，可发送DEC或者HEX
+
+RSET，重启
+收到{RSET},delay(1000)
+HALT，进入设定模式
+收到{HALT},delay(1000)
+
+SetRatio：
+收到 {L/R sensor r ratio}
+回复 (L/R sensor r ratio)
+
+SetSens:
+收到 {L/R sensor k sens}
+回复 (L/R sensor k sens}
+
+sensor范围：
+A1=0x41 ~ A8=0x48
+B1=0x49 ~ B8=0x50
+C1=0x51   C2=0x52
+D1=0x53 ~ D8=0x5A
+E1=0x5B ~ E8=0x62
+
+STAT，初始化完成，允许发送触摸数据
+
+TouchSend:
+发送(x x x x x x x x)
+7个uint8_t x，低5位是bool触摸数据，A1~E8
