@@ -1,6 +1,9 @@
 //#define SerialDevice SerialUSB //32u4,samd21
 #define SerialDevice Serial //esp8266
 
+#include "Adafruit_MPR121.h"//mpr121定义
+Adafruit_MPR121 mprA, mprB, mprC;
+
 uint8_t packet[6];
 uint8_t len = 0;//当前接收的包长度
 #define sA1(x) bitWrite(TPD, 0, x)//设置 sensor
@@ -15,29 +18,53 @@ enum {
   commandRatio = 0x72,//r
   commandSens  = 0x6B,//k
 };
-uint64_t TPD = 0;//触摸数据包
+static uint64_t TouchData = 0; //触摸数据包
 
-bool ConditioningMode = true;
+bool Conditioning = true;
 void setup() {
-  pinMode(D3, INPUT);//调试用
   SerialDevice.begin(9600);
   SerialDevice.setTimeout(0);
+  uint8_t TOUCH = 12;//按下敏感度
+  uint8_t RELEASE = 10;//松开敏感度
+  mprA.begin(0x5A, &Wire, TOUCH, RELEASE);
+  mprB.begin(0x5C, &Wire, TOUCH, RELEASE);
+  mprC.begin(0x5B, &Wire, TOUCH, RELEASE);
+  Wire.setClock(800000);
 }
 
 void loop() {
   Recv();
-  ConditioningMode ? void() : TouchSend();//只有不处于设定模式时才发送触摸数据
+  Conditioning ? void() : TouchSend();//只有不处于设定模式时才发送触摸数据
 }
 
 void cmd_RSET() {//Reset
-  delay(1000);
+  uint8_t CONFIG1 = 0x10;//电流
+  uint8_t CONFIG2 = 0x02;//延迟
+  mprA.writeRegister(MPR121_SOFTRESET, 0x63);//MprReset
+  mprA.writeRegister(MPR121_CONFIG1, CONFIG1);
+  mprA.writeRegister(MPR121_CONFIG2, CONFIG2);
+  mprA.writeRegister(MPR121_ECR, 0x0);//MprStop
+
+  mprB.writeRegister(MPR121_SOFTRESET, 0x63);//MprReset
+  mprB.writeRegister(MPR121_CONFIG1, CONFIG1);
+  mprB.writeRegister(MPR121_CONFIG2, CONFIG2);
+  mprB.writeRegister(MPR121_ECR, 0x0);//MprStop
+
+  mprC.writeRegister(MPR121_SOFTRESET, 0x63);//MprReset
+  mprC.writeRegister(MPR121_CONFIG1, CONFIG1);
+  mprC.writeRegister(MPR121_CONFIG2, CONFIG2);
+  mprC.writeRegister(MPR121_ECR, 0x0);//MprStop
+
+
 }
-void cmd_HALT() {//StartConditioningMode
-  delay(1000);
-  ConditioningMode = true;
+void cmd_HALT() {//Start Conditioning Mode
+  mprA.writeRegister(MPR121_ECR, 0x0);//MprStop
+  mprB.writeRegister(MPR121_ECR, 0x0);
+  mprC.writeRegister(MPR121_ECR, 0x0);
+  Conditioning = true;
 }
 
-void cmd_Ratio() {//SetSenserRatio
+void cmd_Ratio() {//Set Touch Panel Ratio
   SerialDevice.write('(');
   SerialDevice.write(packet[1]);//L,R
   SerialDevice.write(packet[2]);//sensor
@@ -46,7 +73,7 @@ void cmd_Ratio() {//SetSenserRatio
   SerialDevice.write(')');
 }
 
-void cmd_Sens() {//SetSenserSensitivity
+void cmd_Sens() {//Set Touch Panel Sensitivity
   SerialDevice.write('(');
   SerialDevice.write(packet[1]);//L,R
   SerialDevice.write(packet[2]);//sensor
@@ -55,9 +82,11 @@ void cmd_Sens() {//SetSenserSensitivity
   SerialDevice.write(')');
 }
 
-void cmd_STAT() { //EndConditioningMode
-  ConditioningMode = false;
-  sA1(1);
+void cmd_STAT() { //End Conditioning Mode
+  Conditioning = false;
+  mprA.writeRegister(MPR121_ECR, B10000000 + 12);//MprRun
+  mprB.writeRegister(MPR121_ECR, B10000000 + 12);
+  mprC.writeRegister(MPR121_ECR, B10000000 + 12);
 }
 
 void Recv() {
@@ -94,19 +123,30 @@ void Recv() {
   }
 }
 
-void TouchSend() {//调试用,顺序移动触摸数据
-  if (digitalRead(D3)) {
-    return;
+void TouchSend() {
+  uint16_t tmp = mprA.touched();
+  for (uint8_t i = 0; i < 12; i++) {
+    bitWrite(TouchData, i, bitRead(tmp, i));
+    //    bitWrite(TouchData, i, (mprA.baselineData(i) - mprA.filteredData(i)) > 50);//另外一种检测方法
   }
+
+  tmp = mprB.touched();
+  for (uint8_t j = 12; j < 24; j++) {
+    bitWrite(TouchData, j, bitRead(tmp, j - 12));
+  }
+
+  tmp = mprC.touched();
+  for (uint8_t k = 24; k < 36; k++) {
+    bitWrite(TouchData, k, bitRead(tmp, k - 24));
+  }
+
   SerialDevice.write('(');
-  SerialDevice.write(TPD & B11111);
-  SerialDevice.write((TPD >> 5)& B11111);
-  SerialDevice.write((TPD >> 10)& B11111);
-  SerialDevice.write((TPD >> 15)& B11111);
-  SerialDevice.write((TPD >> 20)& B11111);
-  SerialDevice.write((TPD >> 25)& B11111);
-  SerialDevice.write((TPD >> 30)& B11111);
+  SerialDevice.write(TouchData & B11111);
+  SerialDevice.write((TouchData >> 5)& B11111);
+  SerialDevice.write((TouchData >> 10)& B11111);
+  SerialDevice.write((TouchData >> 15)& B11111);
+  SerialDevice.write((TouchData >> 20)& B11111);
+  SerialDevice.write((TouchData >> 25)& B11111);
+  SerialDevice.write((TouchData >> 30)& B11111);
   SerialDevice.write(')');
-  TPD < 0x200000000 ? TPD <<= 1 : TPD = 1;
-  delay(500);
 }
