@@ -1,6 +1,12 @@
 //#define SerialDevice SerialUSB //32u4,samd21
 #define SerialDevice Serial //esp8266
 
+// bitWrite 不支持 uint64_t，以下定义来自 https://forum.arduino.cc/t/bitset-only-sets-bits-from-0-to-31-previously-to-15/193385/5
+#define bitSet64(value, bit) ((value) |= (bit<32?1UL:1ULL) <<(bit))
+#define bitClear64(value, bit) ((value) &= ~(bit<32?1UL:1ULL) <<(bit))
+#define bitWrite64(value, bit, bitvalue) (bitvalue ? bitSet64(value, bit) : bitClear64(value, bit))
+
+
 #include "Adafruit_MPR121.h"//mpr121定义
 Adafruit_MPR121 mprA, mprB, mprC;
 
@@ -18,7 +24,6 @@ enum {
   commandRatio = 0x72,//r
   commandSens  = 0x6B,//k
 };
-static uint64_t TouchData = 0; //触摸数据包
 
 bool Conditioning = true;
 void setup() {
@@ -124,29 +129,21 @@ void Recv() {
 }
 
 void TouchSend() {
-  uint16_t tmp = mprA.touched();
-  for (uint8_t i = 0; i < 12; i++) {
-    bitWrite(TouchData, i, bitRead(tmp, i));
-    //    bitWrite(TouchData, i, (mprA.baselineData(i) - mprA.filteredData(i)) > 50);//另外一种检测方法
-  }
+  uint64_t TouchData = 0; //触摸数据包
+  // 简单方法，从 mpr.touched() 一次读取 12个触摸点的按下状态，需要正确配置 mpr121 的各种参数值才能获取准确的状态
+  TouchData = (TouchData | mprC.touched()) << 12;
+  TouchData = (TouchData | mprB.touched()) << 12;
+  TouchData = (TouchData | mprA.touched());
 
-  tmp = mprB.touched();
-  for (uint8_t j = 12; j < 24; j++) {
-    bitWrite(TouchData, j, bitRead(tmp, j - 12));
-  }
-
-  tmp = mprC.touched();
-  for (uint8_t k = 24; k < 36; k++) {
-    bitWrite(TouchData, k, bitRead(tmp, k - 24));
-  }
+  // 高级方法，读取每个触摸点的 baselineData 和 filteredData，可以单独设置敏感度过滤
+  //  for (uint8_t i = 0; i < 12; i++) {
+  //    bitWrite64(TouchData, i, (mprA.baselineData(i) - mprA.filteredData(i)) > 50);//另外一种检测方法
+  //  }
 
   SerialDevice.write('(');
-  SerialDevice.write(TouchData & B11111);
-  SerialDevice.write((TouchData >> 5)& B11111);
-  SerialDevice.write((TouchData >> 10)& B11111);
-  SerialDevice.write((TouchData >> 15)& B11111);
-  SerialDevice.write((TouchData >> 20)& B11111);
-  SerialDevice.write((TouchData >> 25)& B11111);
-  SerialDevice.write((TouchData >> 30)& B11111);
+  for (uint8_t r = 0; r < 7; r++) {
+    SerialDevice.write(TouchData & B11111);
+    TouchData >>= 5;
+  }
   SerialDevice.write(')');
 }
