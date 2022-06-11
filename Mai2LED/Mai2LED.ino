@@ -110,7 +110,7 @@ void setup() {
 }
 
 unsigned long fade_start, fade_end, progress;
-uint8_t led_start, led_end;
+uint8_t led_start, led_end, fade_tag;
 CRGB fade_prev, fade_taget;
 
 void loop() {
@@ -125,6 +125,7 @@ void loop() {
       }
       leds(req.start, req.end - 1) = CRGB(req.mr, req.mg, req.mb);
       fade_prev = CRGB(req.mr, req.mg, req.mb);
+      fade_tag = 0;
       break;
 
     case LedGs8BitMultiFade:
@@ -133,7 +134,7 @@ void loop() {
       fade_end = fade_start + (4095 / req.speed * 8);
       led_start = req.start;
       led_end = req.end - 1;
-      leds(led_start, led_end) = CRGB(req.mr, req.mg, req.mb);
+      fade_tag = 1;
       break;
 
     case LedFet://框体灯，只有白色，值代表亮度，会多次发送实现渐变，需要立刻刷新
@@ -148,8 +149,13 @@ void loop() {
       break;
   }
 
-  if (millis() > fade_end)return;
-  progress = map(millis(), fade_start, fade_end, 0, 255);
-  leds(led_start, led_end) = blend(fade_taget, fade_prev, progress);
+  if (!fade_tag)return;
+  if (millis() > fade_end) {
+    progress = 255;
+    fade_tag = 0;
+  } else {
+    progress = map(millis(), fade_start, fade_end, 0, 255);
+  }
+  leds(led_start, led_end) = blend(fade_prev, fade_taget, progress);
   FastLED.show();
 }
