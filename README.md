@@ -1,8 +1,8 @@
 # Mai2Touch
 使用 Arduino 制作的 mai2 触摸和按键灯。  
 触摸通信数据格式可参考 [Mai2Touch-Data.txt](Mai2Touch-Data.txt)。  
-按键灯程序**暂未完全实现**，数据可参考[Mai2LED-Data.txt](Mai2LED/Mai2LED-Data.txt)。  
-**mpr121 支持仅简单测试支持，未完整游玩测试。**
+按键灯通信可参考[Mai2LED-Data.txt](Mai2LED/Mai2LED-Data.txt)。  
+**触摸程序 mpr121 仅简单测试支持，未完整游玩测试。**
 
 ### 待完成：  
 - [x] 添加 mpr121 触摸支持
@@ -12,8 +12,8 @@
 ### Mai2Touch 使用方法：  
 - 上传程序
 - 打开设备管理器，设置 Arduino 的 COM 号，1P = COM3，2P = COM4
-- `mai2.ini`内，在`[AM]`下添加`DummyTouchPanel=0`
-- 如果仅有 1P 触摸，可以设置`DummyTouchPanel=1`跳过 2P 触摸检测报错
+- `mai2.ini`内，在`[AM]`下添加`DummyTouchPanel=1`
+- 移除其他触摸屏设备避免互相影响
 - 启动游戏
 
 ### Mai2LED 使用方法：  
