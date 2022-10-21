@@ -2,9 +2,12 @@
 字符是ASCII编码，可发送DEC或者HEX
 
 RSET，重启
-收到{RSET},delay(1000)
+收到 {RSET}
+无需回复
+
 HALT，进入设定模式
-收到{HALT},delay(1000)
+收到 {HALT}
+无需回复
 
 SetRatio：
 收到 {L/R sensor r ratio}
@@ -14,14 +17,30 @@ SetSens:
 收到 {L/R sensor k sens}
 回复 (L/R sensor k sens}
 
-sensor范围：
+SetRatio、SetSens，sensor 的值：
 A1=0x41 ~ A8=0x48
 B1=0x49 ~ B8=0x50
 C1=0x51   C2=0x52
 D1=0x53 ~ D8=0x5A
 E1=0x5B ~ E8=0x62
 
-STAT，初始化完成，收到{STAT},允许发送触摸数据
+在设置里调整敏感度时，SetRatio、SetSens 回复的值（16进制）：
+感度 = ratio，41~48 的 sens，49~62 的 sens
+-5 = 32,5a,46
+-4 = 32,50,3c
+-3 = 32,46,32
+-2 = 32,3c,28
+-1 = 32,32,1e
+ 0 = 32,28,14
++1 = 32,1e,0f
++2 = 32,1a,0a
++3 = 32,17,05
++4 = 32,14,01
++5 = 32,0a,01
+
+STAT，初始化完成
+收到 {STAT}
+无需回复，允许发送触摸数据
 
 TouchSend:
 发送(x x x x x x x x)
