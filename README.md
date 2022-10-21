@@ -6,20 +6,23 @@
 
 ### 待完成：  
 - [x] 添加 mpr121 触摸支持
-- [ ] 添加敏感度调节实现方式
-- [ ] ...
+- [x] 添加敏感度调节实现方式
+- [ ] 收集硬件测试结果 & 等待错误报告
 
 ### Mai2Touch 使用方法：  
 - 上传程序
 - 打开设备管理器，设置 Arduino 的 COM 号，1P = COM3，2P = COM4
-- `mai2.ini`内，在`[AM]`下添加`DummyTouchPanel=1`
-- 移除其他触摸屏设备避免互相影响
+- `mai2.ini`内，在`[AM]`下添加`DummyTouchPanel=1`或`IgnoreError=1`
+  - 添加`DummyTouchPanel=1`是为了屏蔽缺少 2P 触摸设备的错误报告，在没有接 HID 触摸设备的情况下，该设置不会影响触摸状态
+  - 如果发现有影响，则可以改成`DummyTouchPanel=0`然后添加`IgnoreError=1`
+  - 如果有接了两个触摸设备，可以不添加
 - 启动游戏
 
 ### Mai2LED 使用方法：  
 - 上传程序
 - 打开设备管理器，设置 Arduino 的 COM 号，1P = COM21，2P = COM23
 - `mai2.ini`内，在`[AM]`下添加`DummyLED=1`
+  - 目前的程序并未对 LED 初始化指令响应，所以必须添加`DummyLED=1`屏蔽报错，不会影响 LED 数据的接收
 - 启动游戏
 
 ### 已测试开发板：
