@@ -1,6 +1,6 @@
 # Mai2Touch
 使用 Arduino 制作的 mai2 触摸和按键灯。  
-触摸通信数据格式可参考 [Mai2Touch-Data.txt](Mai2Touch-Data.txt)。  
+触摸通信数据格式可参考 [Mai2Touch-Data.txt](Mai2Touch/Mai2Touch-Data.txt)。  
 按键灯通信可参考[Mai2LED-Data.txt](Mai2LED/Mai2LED-Data.txt)。  
 **触摸程序 mpr121 仅简单测试支持，未完整游玩测试。**
 
