@@ -14,14 +14,7 @@
 #error "未经测试的开发板，请检查串口和阵脚定义"
 #endif
 
-// bitWrite 不支持 uint64_t，以下定义来自 https://forum.arduino.cc/t/bitset-only-sets-bits-from-0-to-31-previously-to-15/193385/5
-#define bitSet64(value, bit) ((value) |= (bit<32?1UL:1ULL) <<(bit))
-#define bitClear64(value, bit) ((value) &= ~(bit<32?1UL:1ULL) <<(bit))
-#define bitWrite64(value, bit, bitvalue) (bitvalue ? bitSet64(value, bit) : bitClear64(value, bit))
-
-
 #include "MprCfg.h"
-Adafruit_MPR121 mprA, mprB, mprC;
 
 enum {
   commandRSET  = 0x45,//E
@@ -36,9 +29,9 @@ bool Conditioning = true;
 void setup() {
   SerialDevice.begin(9600);
   SerialDevice.setTimeout(0);
-  mprA.begin(0x5A);
-  mprB.begin(0x5B);
-  mprC.begin(0x5C);
+  mprA.begin(mprA_ADD);
+  mprB.begin(mprB_ADD);
+  mprC.begin(mprC_ADD);
   Wire.setClock(800000);
 }
 
@@ -47,12 +40,12 @@ void loop() {
   Conditioning ? void() : TouchSend();//只有不处于设定模式时才发送触摸数据
 }
 
-void cmd_RSET() {//Reset
+void cmd_RSET() { // Reset
   MprReset(mprA);
   MprReset(mprB);
   MprReset(mprC);
 }
-void cmd_HALT() {//Start Conditioning Mode
+void cmd_HALT() { // Start Conditioning Mode
   MprStop(mprA);
   MprStop(mprB);
   MprStop(mprC);
@@ -62,32 +55,34 @@ void cmd_HALT() {//Start Conditioning Mode
   Conditioning = true;
 }
 
-void cmd_Ratio() {//Set Touch Panel Ratio
+void cmd_Ratio() { // Set Touch Panel Ratio
+  MprSetTouch(packet[2], packet[4]); // 敏感度修改，仅作示例，需要根据实际情况修改
   SerialDevice.write('(');
-  SerialDevice.write(packet[1]);//L,R
-  SerialDevice.write(packet[2]);//sensor
+  SerialDevice.write(packet[1]); //L,R
+  SerialDevice.write(packet[2]); //sensor
   SerialDevice.write('r');
-  SerialDevice.write(packet[4]);//Ratio
+  SerialDevice.write(packet[4]); // Ratio
   SerialDevice.write(')');
 }
 
-void cmd_Sens() {//Set Touch Panel Sensitivity
+void cmd_Sens() { // Set Touch Panel Sensitivity
+  MprSetRelease(packet[2], packet[4]); // 敏感度修改，仅作示例，需要根据实际情况修改
   SerialDevice.write('(');
-  SerialDevice.write(packet[1]);//L,R
-  SerialDevice.write(packet[2]);//sensor
+  SerialDevice.write(packet[1]); // L,R
+  SerialDevice.write(packet[2]); // sensor
   SerialDevice.write('k');
-  SerialDevice.write(packet[4]);//Sensitivity
+  SerialDevice.write(packet[4]); // Sensitivity
   SerialDevice.write(')');
 }
 
-void cmd_STAT() { //End Conditioning Mode
+void cmd_STAT() { // End Conditioning Mode
   Conditioning = false;
   MprRun(mprA);
   MprRun(mprB);
   MprRun(mprC);
 }
 
-uint8_t len = 0;//当前接收的包长度
+uint8_t len = 0; // 当前接收的包长度
 void Recv() {
   while (SerialDevice.available()) {
     uint8_t r = SerialDevice.read();
@@ -125,20 +120,19 @@ void Recv() {
 void TouchSend() {
   uint64_t TouchData = 0; //触摸数据包
   // 简单方法，从 mpr.touched() 一次读取 12个触摸点的按下状态，需要正确配置 mpr121 的各种参数值才能获取准确的状态
-  TouchData = (TouchData | mprC.touched()) << 12;
-  TouchData = (TouchData | mprB.touched()) << 12;
-  TouchData = (TouchData | mprA.touched());
+  TouchData = (TouchData | mprC.touched()) << 12;// D7 ~ E8
+  TouchData = (TouchData | mprB.touched()) << 12;// B5 ~ D6
+  TouchData = (TouchData | mprA.touched());// A1 ~ B4
 
   // 高级方法，读取每个触摸点的 baselineData 和 filteredData，可以精确控制触发敏感度。因为读取和判断的耗时，延迟可能会变高
   //  #define Threshold 10 //触摸触发阈值
-  // bitWrite64(TouchData, i, (int)(mprA.baselineData(i) - mprA.filteredData(i)) > Threshold);//另外一种检测方法
-  //  for (uint8_t i = 0; i < 10; i++) {// E8 - D7
+  //  for (uint8_t i = 0; i < 10; i++) {// E8 ~ D7
   //    TouchData = (TouchData | (int)(mprC.baselineData(i) - mprC.filteredData(i)) > Threshold) << 1;
   //  }
-  //  for (uint8_t i = 0; i < 12; i++) {// D6 - B5
+  //  for (uint8_t i = 0; i < 12; i++) {// D6 ~ B5
   //    TouchData = (TouchData | (int)(mprB.baselineData(i) - mprB.filteredData(i)) > Threshold) << 1;
   //  }
-  //  for (uint8_t i = 0; i < 12; i++) {// B4 - A1
+  //  for (uint8_t i = 0; i < 12; i++) {// B4 ~ A1
   //    TouchData = (TouchData | (int)(mprA.baselineData(i) - mprA.filteredData(i)) > Threshold) << 1;
   //  }
   //  TouchData >>= 1;
