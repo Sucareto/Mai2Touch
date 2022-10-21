@@ -21,7 +21,7 @@ C1=0x51   C2=0x52
 D1=0x53 ~ D8=0x5A
 E1=0x5B ~ E8=0x62
 
-STAT，初始化完成，允许发送触摸数据
+STAT，初始化完成，收到{STAT},允许发送触摸数据
 
 TouchSend:
 发送(x x x x x x x x)

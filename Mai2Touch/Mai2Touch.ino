@@ -1,5 +1,18 @@
-//#define SerialDevice SerialUSB //32u4,samd21
-#define SerialDevice Serial //esp8266
+#if defined(__AVR_ATmega32U4__) || defined(ARDUINO_SAMD_ZERO)
+#pragma message "当前的开发板是 ATmega32U4 或 SAMD_ZERO"
+#define SerialDevice SerialUSB
+
+#elif defined(ARDUINO_ESP8266_NODEMCU_ESP12E)
+#pragma message "当前的开发板是 NODEMCU_ESP12E"
+#define SerialDevice Serial
+
+#elif defined(ARDUINO_NodeMCU_32S)
+#pragma message "当前的开发板是 NodeMCU_32S"
+#define SerialDevice Serial
+
+#else
+#error "未经测试的开发板，请检查串口和阵脚定义"
+#endif
 
 // bitWrite 不支持 uint64_t，以下定义来自 https://forum.arduino.cc/t/bitset-only-sets-bits-from-0-to-31-previously-to-15/193385/5
 #define bitSet64(value, bit) ((value) |= (bit<32?1UL:1ULL) <<(bit))
@@ -7,16 +20,9 @@
 #define bitWrite64(value, bit, bitvalue) (bitvalue ? bitSet64(value, bit) : bitClear64(value, bit))
 
 
-#include "Adafruit_MPR121.h"//mpr121定义
+#include "MprCfg.h"
 Adafruit_MPR121 mprA, mprB, mprC;
 
-uint8_t packet[6];
-uint8_t len = 0;//当前接收的包长度
-#define sA1(x) bitWrite(TPD, 0, x)//设置 sensor
-#define sB1(x) bitWrite(TPD, 8, x)
-#define sC1(x) bitWrite(TPD, 16, x)
-#define sD1(x) bitWrite(TPD, 18, x)
-#define sE1(x) bitWrite(TPD, 26, x)
 enum {
   commandRSET  = 0x45,//E
   commandHALT  = 0x4C,//L
@@ -24,16 +30,15 @@ enum {
   commandRatio = 0x72,//r
   commandSens  = 0x6B,//k
 };
-
+uint8_t packet[6];
 bool Conditioning = true;
+
 void setup() {
   SerialDevice.begin(9600);
   SerialDevice.setTimeout(0);
-  uint8_t TOUCH = 12;//按下敏感度
-  uint8_t RELEASE = 10;//松开敏感度
-  mprA.begin(0x5A, &Wire, TOUCH, RELEASE);
-  mprB.begin(0x5C, &Wire, TOUCH, RELEASE);
-  mprC.begin(0x5B, &Wire, TOUCH, RELEASE);
+  mprA.begin(0x5A);
+  mprB.begin(0x5B);
+  mprC.begin(0x5C);
   Wire.setClock(800000);
 }
 
@@ -43,29 +48,17 @@ void loop() {
 }
 
 void cmd_RSET() {//Reset
-  uint8_t CONFIG1 = 0x10;//电流
-  uint8_t CONFIG2 = 0x02;//延迟
-  mprA.writeRegister(MPR121_SOFTRESET, 0x63);//MprReset
-  mprA.writeRegister(MPR121_CONFIG1, CONFIG1);
-  mprA.writeRegister(MPR121_CONFIG2, CONFIG2);
-  mprA.writeRegister(MPR121_ECR, 0x0);//MprStop
-
-  mprB.writeRegister(MPR121_SOFTRESET, 0x63);//MprReset
-  mprB.writeRegister(MPR121_CONFIG1, CONFIG1);
-  mprB.writeRegister(MPR121_CONFIG2, CONFIG2);
-  mprB.writeRegister(MPR121_ECR, 0x0);//MprStop
-
-  mprC.writeRegister(MPR121_SOFTRESET, 0x63);//MprReset
-  mprC.writeRegister(MPR121_CONFIG1, CONFIG1);
-  mprC.writeRegister(MPR121_CONFIG2, CONFIG2);
-  mprC.writeRegister(MPR121_ECR, 0x0);//MprStop
-
-
+  MprReset(mprA);
+  MprReset(mprB);
+  MprReset(mprC);
 }
 void cmd_HALT() {//Start Conditioning Mode
-  mprA.writeRegister(MPR121_ECR, 0x0);//MprStop
-  mprB.writeRegister(MPR121_ECR, 0x0);
-  mprC.writeRegister(MPR121_ECR, 0x0);
+  MprStop(mprA);
+  MprStop(mprB);
+  MprStop(mprC);
+  MprConfig(mprA);
+  MprConfig(mprB);
+  MprConfig(mprC);
   Conditioning = true;
 }
 
@@ -89,11 +82,12 @@ void cmd_Sens() {//Set Touch Panel Sensitivity
 
 void cmd_STAT() { //End Conditioning Mode
   Conditioning = false;
-  mprA.writeRegister(MPR121_ECR, B10000000 + 12);//MprRun
-  mprB.writeRegister(MPR121_ECR, B10000000 + 12);
-  mprC.writeRegister(MPR121_ECR, B10000000 + 12);
+  MprRun(mprA);
+  MprRun(mprB);
+  MprRun(mprC);
 }
 
+uint8_t len = 0;//当前接收的包长度
 void Recv() {
   while (SerialDevice.available()) {
     uint8_t r = SerialDevice.read();
@@ -135,14 +129,24 @@ void TouchSend() {
   TouchData = (TouchData | mprB.touched()) << 12;
   TouchData = (TouchData | mprA.touched());
 
-  // 高级方法，读取每个触摸点的 baselineData 和 filteredData，可以单独设置敏感度过滤
-  //  for (uint8_t i = 0; i < 12; i++) {
-  //    bitWrite64(TouchData, i, (mprA.baselineData(i) - mprA.filteredData(i)) > 50);//另外一种检测方法
+  // 高级方法，读取每个触摸点的 baselineData 和 filteredData，可以精确控制触发敏感度。因为读取和判断的耗时，延迟可能会变高
+  //  #define Threshold 10 //触摸触发阈值
+  // bitWrite64(TouchData, i, (int)(mprA.baselineData(i) - mprA.filteredData(i)) > Threshold);//另外一种检测方法
+  //  for (uint8_t i = 0; i < 10; i++) {// E8 - D7
+  //    TouchData = (TouchData | (int)(mprC.baselineData(i) - mprC.filteredData(i)) > Threshold) << 1;
   //  }
+  //  for (uint8_t i = 0; i < 12; i++) {// D6 - B5
+  //    TouchData = (TouchData | (int)(mprB.baselineData(i) - mprB.filteredData(i)) > Threshold) << 1;
+  //  }
+  //  for (uint8_t i = 0; i < 12; i++) {// B4 - A1
+  //    TouchData = (TouchData | (int)(mprA.baselineData(i) - mprA.filteredData(i)) > Threshold) << 1;
+  //  }
+  //  TouchData >>= 1;
+
 
   SerialDevice.write('(');
   for (uint8_t r = 0; r < 7; r++) {
-    SerialDevice.write(TouchData & B11111);
+    SerialDevice.write((uint8_t)(TouchData & B11111));
     TouchData >>= 5;
   }
   SerialDevice.write(')');
