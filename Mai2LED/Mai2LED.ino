@@ -1,161 +1,91 @@
 #if defined(__AVR_ATmega32U4__) || defined(ARDUINO_SAMD_ZERO)
 #pragma message "当前的开发板是 ATmega32U4 或 SAMD_ZERO"
 #define SerialDevice SerialUSB
-#define LED_PIN 13
+#define LED_PIN 5
 
-#elif defined(ARDUINO_ESP8266_NODEMCU_ESP12E)
-#pragma message "当前的开发板是 NODEMCU_ESP12E"
+#elif defined(ESP8266)
+#pragma message "当前的开发板是 ESP8266"
 #define SerialDevice Serial
-#define LED_PIN D5
+#define LED_PIN D1
 
-#elif defined(ARDUINO_NodeMCU_32S)
-#pragma message "当前的开发板是 NodeMCU_32S"
+#elif defined(ESP32)
+#pragma message "当前的开发板是 ESP32"
 #define SerialDevice Serial
 #define LED_PIN 13
-
 
 #else
-#error "未经测试的开发板，请检查串口和阵脚定义"
+#error "未经测试的开发板，请检查串口和针脚定义"
 #endif
 
-#include "FastLED.h"
-#define NUM_LEDS 11
-CRGBArray<NUM_LEDS> leds;
-
-
-enum {
-  LedGs8Bit = 0x31,//49
-  LedGs8BitMulti = 0x32,//50
-  LedGs8BitMultiFade = 0x33,//51
-  LedFet = 0x39,//57
-  LedGsUpdate = 0x3C,//60
-  LedDirect = 0x82,
-};
-
-typedef union {
-  uint8_t base[64];
-  struct {
-    struct {
-      uint8_t dstNodeID;
-      uint8_t srcNodeID;
-      uint8_t length;
-      uint8_t cmd;
-    };
-    union {
-      struct { //39
-        uint8_t color[11][3];//CRGB
-      };
-      struct { //9
-        uint8_t BodyLed;
-        uint8_t ExtLed;
-        uint8_t SideLed;
-      };
-      struct { //LedGs8Bit
-        uint8_t index;
-        uint8_t r;
-        uint8_t g;
-        uint8_t b;
-      };
-      struct { //LedGs8BitMulti,LedGs8BitMultiFade
-        uint8_t start;
-        uint8_t end;//length
-        uint8_t skip;
-        uint8_t mr;
-        uint8_t mg;
-        uint8_t mb;
-        uint8_t speed;
-      };
-    };
-  };
-} Packet;
-
-static Packet req;
-
-static uint8_t len, r, checksum;
-static bool escape = false;
-
-static uint8_t packet_read() {
-  while (SerialDevice.available()) {
-    r = SerialDevice.read();
-    if (r == 0xE0) {
-      len = 0;
-      checksum = 0;
-      continue;
-    }
-    if (r == 0xD0) {
-      escape = true;
-      continue;
-    }
-    if (escape) {
-      r++;
-      escape = false;
-    }
-
-    if (len - 3 == req.length && checksum == r) {
-      return req.cmd;
-    }
-    req.base[len++] = r;
-    checksum += r;
-  }
-  return 0;
-}
+#include "BD15070_4.h"
 
 void setup() {
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
-  FastLED.setBrightness(30);
+  // FastLED.setBrightness(30);
   FastLED.clear();
   SerialDevice.begin(115200);
-  leds(0, 7) = 0xFFFFFF;
-  FastLED.delay(1000);
+  FastLED.showColor(0xFFFFFF);
+  memset(req.buffer, 0, sizeof(req.buffer));
+  memset(ack.buffer, 0, sizeof(ack.buffer));
 }
-
-unsigned long fade_start, fade_end, progress;
-uint8_t led_start, led_end, fade_tag;
-CRGB fade_prev, fade_taget;
 
 void loop() {
   switch (packet_read()) {
-    case LedGs8Bit:
-      leds[req.index] = CRGB(req.r, req.g, req.b);
+    case AckStatus_SumError:
+      ack_init(0, AckStatus_SumError, 0);
       break;
-
-    case LedGs8BitMulti:
-      if (req.end == 0x20) {
-        req.end = NUM_LEDS;
-      }
-      leds(req.start, req.end - 1) = CRGB(req.mr, req.mg, req.mb);
-      fade_prev = CRGB(req.mr, req.mg, req.mb);
-      fade_tag = 0;
+    case SetLedGs8Bit:
+      setLedGs8Bit();
       break;
-
-    case LedGs8BitMultiFade:
-      fade_taget = CRGB(req.mr, req.mg, req.mb);
-      fade_start = millis();
-      fade_end = fade_start + (4095 / req.speed * 8);
-      led_start = req.start;
-      led_end = req.end - 1;
-      fade_tag = 1;
+    case SetLedGs8BitMulti:
+      setLedGs8BitMulti();
       break;
-
-    case LedFet://框体灯，只有白色，值代表亮度，会多次发送实现渐变，需要立刻刷新
-      leds[8] = blend(0x000000, 0xFFFFFF, req.BodyLed);
-      leds[9] = blend(0x000000, 0xFFFFFF, req.ExtLed);//same as BodyLed
-      leds[10] = blend(0x000000, 0xFFFFFF, req.SideLed);//00 or FF
+    case SetLedGs8BitMultiFade:
+      setLedGs8BitMultiFade();
+      break;
+    case SetLedFet:
+      setLedFet();
+      break;
+    case SetLedGsUpdate:
       FastLED.show();
+      ack_init();
       break;
-
-    case LedGsUpdate://提交灯光数据
-      FastLED.show();
+    case SetEEPRom:
+      dummyEEPRom[req.Set_adress] = req.writeData;
+      ack_init();
       break;
+    case GetEEPRom:
+      ack.eepData = dummyEEPRom[req.Get_adress];
+      ack_init(1);
+      break;
+    case GetBoardInfo:
+      getBoardInfo();
+      break;
+    case GetBoardStatus:
+      getBoardStatus();
+      break;
+    case GetFirmSum:
+      getFirmSum();
+      break;
+    case GetProtocolVersion:
+      getProtocolVersion();
+      break;
+    case SetEnableResponse:
+    case SetDisableResponse:
+    case 0:
+      break;
+    default:
+      ack_init();
   }
+  packet_write();
 
-  if (!fade_tag)return;
-  if (millis() > fade_end) {
+  if (!NeedFade) return;
+  if (millis() > EndFadeTime) {
     progress = 255;
-    fade_tag = 0;
+    NeedFade = false;
   } else {
-    progress = map(millis(), fade_start, fade_end, 0, 255);
+    progress = map(millis(), StartFadeTime, EndFadeTime, 0, 255);
   }
-  leds(led_start, led_end) = blend(fade_prev, fade_taget, progress);
+  leds(StartFadeLed, EndFadeLed) = blend(StartFadeColor, EndFadeColor, progress);
   FastLED.show();
 }

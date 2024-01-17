@@ -1,12 +1,10 @@
 # Mai2Touch
-使用 Arduino 制作的 mai2 触摸和按键灯。  
+使用 Arduino 制作的 mai2 触摸输入和 LED 控制板（837-15070-04）示例程序。  
 触摸通信数据格式可参考 [Mai2Touch-Data.txt](Mai2Touch/Mai2Touch-Data.txt)。  
-按键灯通信可参考[Mai2LED-Data.txt](Mai2LED/Mai2LED-Data.txt)。  
-**触摸程序 mpr121 仅简单测试支持，未完整游玩测试。**
+LED 控制板通信可参考[Mai2LED-Data.txt](Mai2LED/Mai2LED-Data.txt)。  
 
 ### 待完成：  
-- [x] 添加 mpr121 触摸支持
-- [x] 添加敏感度调节实现方式
+- [ ] 收集 LED 控制板串口数据
 - [ ] 收集硬件测试结果 & 等待错误报告
 
 ### Mai2Touch 使用方法：  
@@ -21,13 +19,14 @@
 ### Mai2LED 使用方法：  
 - 上传程序
 - 打开设备管理器，设置 Arduino 的 COM 号，1P = COM21，2P = COM23
-- `mai2.ini`内，在`[AM]`下添加`DummyLED=1`
-  - 目前的程序并未对 LED 初始化指令响应，所以必须添加`DummyLED=1`屏蔽报错，不会影响 LED 数据的接收
+- `mai2.ini`内，在`[AM]`下添加`DummyLED=1`(如无报错可以不加)
 - 启动游戏
 
 ### 已测试开发板：
-- SparkFun Pro Micro（ATmega32U4）
-- NodeMCU 1.0（ESP-12E + CP2102 & CH340），SDA=D2，SCL=D1
+- SparkFun Pro Micro & Arduino Leonardo (ATmega32U4)
+- SparkFun SAMD21 Dev Breakout & Arduino Zero (ATSAMD21G18)
+- NodeMCU 1.0 (ESP-12E + CP2102 & CH340)
+- NodeMCU-32S (ESP32-S + CH340)
 
 ### 引用 & 参考：
 - [mpr121操作 Adafruit_MPR121](https://github.com/adafruit/Adafruit_MPR121)
