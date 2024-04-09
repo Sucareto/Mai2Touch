@@ -1,11 +1,12 @@
 # Mai2Touch
 使用 Arduino 制作的 mai2 触摸输入和 LED 控制板（837-15070-04）示例程序。  
-触摸通信数据格式可参考 [Mai2Touch-Data.txt](Mai2Touch/Mai2Touch-Data.txt)。  
-LED 控制板通信可参考[Mai2LED-Data.txt](Mai2LED/Mai2LED-Data.txt)。  
+触摸设备通信数据格式可参考 [Mai2Touch 数据分析](Mai2Touch/README.md)，实际数据参考 [Mai2Touch-Data.txt](Mai2Touch/Mai2Touch-Data.txt)  
+LED 控制板通信数据格式可参考 [Mai2LED 数据分析](Mai2LED/README.md)，实际数据参考 [Mai2LED-Data.txt](Mai2LED/Mai2LED-Data.txt)  
 
 ### 待完成：  
-- [ ] 收集 LED 控制板串口数据
-- [ ] 收集硬件测试结果 & 等待错误报告
+- [ ] 收集官方设备串口数据
+- [ ] 收集硬件测试结果
+- [ ] 等待错误报告
 
 ### Mai2Touch 使用方法：  
 - 上传程序
@@ -28,7 +29,6 @@ LED 控制板通信可参考[Mai2LED-Data.txt](Mai2LED/Mai2LED-Data.txt)。
 - NodeMCU 1.0 (ESP-12E + CP2102 & CH340)
 - NodeMCU-32S (ESP32-S + CH340)
 
-### 引用 & 参考：
-- [mpr121操作 Adafruit_MPR121](https://github.com/adafruit/Adafruit_MPR121)
-- [Mai2LED灯光数据结构参考](https://github.com/xiaopeng12138/MaiDXR/blob/6bb6d50c359bd7a7d8de964e3fed06a3e218e37e/Assets/Scripts/LedSerial.cs)
-- [bitWrite64](https://forum.arduino.cc/t/bitset-only-sets-bits-from-0-to-31-previously-to-15/193385/5)
+### 引用库：
+- 驱动 mpr121：[Adafruit_MPR121](https://github.com/adafruit/Adafruit_MPR121)
+
