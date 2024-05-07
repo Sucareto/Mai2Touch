@@ -3,42 +3,42 @@
 CRGBArray<NUM_LEDS> leds;
 
 enum {
-  Sync = 224,
-  Marker = 208,
+  Sync = 0xE0,
+  Marker = 0xD0,
 
-  ResetCommand = 16,
-  SetTimeout = 17,
-  SetLedGs8Bit = 49,
-  SetLedGs8BitMulti = 50,
-  SetLedGs8BitMultiFade = 51,
-  SetLedFet = 57,
-  SetDcUpdate = 59,
-  SetLedGsUpdate = 60,
-  SetDc = 63,
-  SetEEPRom = 123,
-  GetEEPRom = 124,
-  SetEnableResponse = 125,
-  SetDisableResponse = 126,
-  SetLedDirect = 130,
-  GetBoardInfo = 240,
-  GetBoardStatus = 241,
-  GetFirmSum = 242,
-  GetProtocolVersion = 243,
-  SetBootMode = 253,
+  // ResetCommand = 0x10,
+  // SetTimeout = 0x11,
+  SetLedGs8Bit = 0x31,
+  SetLedGs8BitMulti = 0x32,
+  SetLedGs8BitMultiFade = 0x33,
+  SetLedFet = 0x39,
+  SetDcUpdate = 0x3B,
+  SetLedGsUpdate = 0x3C,
+  SetDc = 0x3F,
+  SetEEPRom = 0x7B,
+  GetEEPRom = 0x7C,
+  SetEnableResponse = 0x7D,
+  SetDisableResponse = 0x7E,
+  // SetLedDirect = 0x82,
+  GetBoardInfo = 0xF0,
+  GetBoardStatus = 0xF1,
+  GetFirmSum = 0xF2,
+  GetProtocolVersion = 0xF3,
+  // SetBootMode = 0xFD,
 
-  AckStatus_Ok = 1,
-  AckStatus_SumError = 2,
-  AckStatus_ParityError = 3,
-  AckStatus_FramingError = 4,
-  AckStatus_OverRunError = 5,
-  AckStatus_RecvBfOverFlow = 6,
-  AckStatus_Invalid = 255,
+  AckStatus_Ok = 0x01,
+  AckStatus_SumError = 0x02,
+  AckStatus_ParityError = 0x03,
+  AckStatus_FramingError = 0x04,
+  AckStatus_OverRunError = 0x05,
+  AckStatus_RecvBfOverFlow = 0x06,
+  AckStatus_Invalid = 0xFF,
 
-  AckReport_Ok = 1,
-  AckReport_Busy = 2,
-  AckReport_CommandUnknown = 3,
-  AckReport_ParamError = 4,
-  AckReport_Invalid = 255
+  AckReport_Ok = 0x01,
+  AckReport_Busy = 0x02,
+  AckReport_CommandUnknown = 0x03,
+  AckReport_ParamError = 0x04,
+  AckReport_Invalid = 0xFF
 };
 
 typedef union {
@@ -57,13 +57,12 @@ typedef union {
         uint8_t index;
         uint8_t color[3];
       };
-
       struct {  // SetLedGs8BitMulti, SetLedGs8BitMultiFade, SetDc
         uint8_t start;
         uint8_t end;  //length
         uint8_t skip;
         uint8_t Multi_color[3];
-        uint8_t speed;
+        uint8_t speed;  // SetDc no exist
       };
       struct {  // SetLedFet
         uint8_t BodyLed;
@@ -196,7 +195,7 @@ CRGB StartFadeColor, EndFadeColor;
 bool NeedFade = false;
 
 void setLedGs8BitMulti() {
-  if (req.end == 32) {  // SetLedDataAllOff
+  if (req.end == 0x20) {  // SetLedDataAllOff
     req.end = NUM_LEDS;
   }
   StartFadeColor = CRGB(req.Multi_color[0], req.Multi_color[1], req.Multi_color[2]);
@@ -226,14 +225,14 @@ void setLedFet() {  // 框体灯，只有白色，值代表亮度，会多次发
 }
 
 void getBoardInfo() {
-  memcpy(ack.boardNo, "15070-04\xFF", 9);
+  memcpy(ack.boardNo, "15070-04\xFF\x90\x00\x30", 12);
   ack.firmRevision = 144;
   ack_init(10);
 }
 
 void getBoardStatus() {  // unknown
   ack.timeoutStat = 0;
-  ack.timeoutSec = 0;
+  ack.timeoutSec = 1;
   ack.pwmIo = 0;
   ack.fetTimeout = 0;
   ack_init(4);
@@ -247,7 +246,7 @@ void getFirmSum() {  // unknown
 
 void getProtocolVersion() {  // unknown
   ack.appliMode = 1;         // IsNeedFirmUpdate = false
-  ack.major = 0;
-  ack.minor = 0;
+  ack.major = 1;
+  ack.minor = 1;
   ack_init(3);
 }
